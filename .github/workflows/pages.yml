@@ -1,0 +1,40 @@
+name: Publish MHLearning
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Assemble website and published textbooks
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p site/textbooks
+          cp -R index.html .nojekyll assets data exam-figures site/
+          for id in bx1 bx2 bx3 xb1 xb2 xb3; do
+            gh release download textbooks-pep2019-v1 --pattern "$id.pdf" --dir site/textbooks
+          done
+          (cd site/textbooks && sha256sum --check ../../textbooks.sha256)
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+  deploy:
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.publish.outputs.page_url }}
+    steps:
+      - id: publish
+        uses: actions/deploy-pages@v4
